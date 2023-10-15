@@ -1,2 +1,2 @@
 # POSTECH-CSED539
-POSTECH CSED539 (Deep Learning) Final term Project 
+POSTECH CSED539 (Computer Vision) Final term Project 
