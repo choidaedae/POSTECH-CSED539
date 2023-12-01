@@ -48,7 +48,7 @@ def get_argparser():
                         help="apply separable conv to decoder and aspp")
     parser.add_argument("--output_stride", type=int, default=16, choices=[8, 16])
     
-    parser.add_argument("--wavelets", type=bool, default=False,
+    parser.add_argument("--wavelets", type=bool, default=True,
                         help='using wavelet transform (i.e. DeepLabV3PlusW Model)')
 
     # Train Options
