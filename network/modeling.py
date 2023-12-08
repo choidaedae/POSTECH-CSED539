@@ -1,5 +1,5 @@
 from .utils import IntermediateLayerGetter
-from ._deeplab import DeepLabHead, DeepLabHeadV3Plus, DeepLabV3
+from ._deeplab import DeepLabHead, DeepLabHeadV3Plus, DeepLabV3, DeepLabHeadV3PlusWSAPA
 from .backbone import (
     resnet,
     mobilenetv2,
@@ -47,7 +47,12 @@ def _segm_resnet(name, backbone_name, num_classes, output_stride, pretrained_bac
 
     if name=='deeplabv3plus':
         return_layers = {'layer4': 'out', 'layer1': 'low_level'}
-        classifier = DeepLabHeadV3Plus(inplanes, low_level_planes, num_classes, aspp_dilate)
+        
+        if wavelet:
+            classifier = DeepLabHeadV3PlusWSAPA(inplanes, low_level_planes, num_classes, aspp_dilate)
+        else: 
+            classifier = DeepLabHeadV3Plus(inplanes, low_level_planes, num_classes, aspp_dilate)
+            
     elif name=='deeplabv3':
         return_layers = {'layer4': 'out'}
         classifier = DeepLabHead(inplanes , num_classes, aspp_dilate)

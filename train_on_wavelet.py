@@ -361,7 +361,7 @@ def main():
             optimizer.zero_grad()
             
             if opts.wavelets:
-                outputs = model(i_ll) # 256, 256 resolution 
+                outputs = model(i_ll, hfs) # 256, 256 resolution 
                 
             else: outputs = model(images)
             

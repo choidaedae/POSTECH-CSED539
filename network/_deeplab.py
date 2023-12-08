@@ -60,9 +60,9 @@ class DeepLabHeadV3Plus(nn.Module):
                 nn.init.constant_(m.bias, 0)
                 
                 
-class DeepLabHeadV3PlusW(nn.Module): # Newly implement 
+class DeepLabHeadV3PlusWSAPA(nn.Module): # Newly implement 
     def __init__(self, in_channels, low_level_channels, num_classes, aspp_dilate=[12, 24, 36]):
-        super(DeepLabHeadV3PlusW, self).__init__()
+        super(DeepLabHeadV3PlusWSAPA, self).__init__()
         self.project = nn.Sequential( 
             nn.Conv2d(low_level_channels, 48, 1, bias=False),
             nn.BatchNorm2d(48),
@@ -83,6 +83,7 @@ class DeepLabHeadV3PlusW(nn.Module): # Newly implement
         low_level_feature = self.project( feature['low_level'] )
         output_feature = self.aspp(feature['out'])
         output_feature = F.interpolate(output_feature, size=low_level_feature.shape[2:], mode='bilinear', align_corners=False)
+        
         return self.classifier( torch.cat( [ low_level_feature, output_feature ], dim=1 ))  # 64, 64 if input is 256 x 256
     
     def _init_weight(self):
