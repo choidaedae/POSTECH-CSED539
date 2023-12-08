@@ -4,6 +4,8 @@ from torch.nn import functional as F
 
 from .utils import _SimpleSegmentationModel
 
+from ..sapa import SAPAExp
+
 
 __all__ = ["DeepLabV3"]
 
@@ -43,7 +45,8 @@ class DeepLabHeadV3Plus(nn.Module):
             nn.Conv2d(256, num_classes, 1)
         )
         self._init_weight()
-
+    
+        
     def forward(self, feature):
         low_level_feature = self.project( feature['low_level'] )
         output_feature = self.aspp(feature['out'])
@@ -77,11 +80,14 @@ class DeepLabHeadV3PlusWSAPA(nn.Module): # Newly implement
             nn.ReLU(inplace=True),
             nn.Conv2d(256, num_classes, 1)
         )
+        self.sapa = SAPAExp(dim_y = 2)
+        
         self._init_weight()
+        
 
     def forward(self, feature):
-        low_level_feature = self.project( feature['low_level'] )
-        output_feature = self.aspp(feature['out'])
+        low_level_feature = self.project( feature['low_level'] ) 
+        output_feature = self.aspp(feature['out']) 
         output_feature = F.interpolate(output_feature, size=low_level_feature.shape[2:], mode='bilinear', align_corners=False)
         
         return self.classifier( torch.cat( [ low_level_feature, output_feature ], dim=1 ))  # 64, 64 if input is 256 x 256
