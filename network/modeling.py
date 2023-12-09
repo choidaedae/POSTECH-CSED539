@@ -1,11 +1,12 @@
 from .utils import IntermediateLayerGetter
-from ._deeplab import DeepLabHead, DeepLabHeadV3Plus, DeepLabV3, DeepLabHeadV3PlusWSAPA
+from ._deeplab import DeepLabHead, DeepLabHeadV3Plus, DeepLabV3, DeepLabHeadV3PlusWSAPA, DeepLabHeadV3Plus_CARAFE, DeepLabV3_wavelet
 from .backbone import (
     resnet,
     mobilenetv2,
     hrnetv2,
     xception
 )
+wavelet = True
 
 def _segm_hrnet(name, backbone_name, num_classes, pretrained_backbone):
 
@@ -49,7 +50,7 @@ def _segm_resnet(name, backbone_name, num_classes, output_stride, pretrained_bac
         return_layers = {'layer4': 'out', 'layer1': 'low_level'}
         
         if wavelet:
-            classifier = DeepLabHeadV3PlusWSAPA(inplanes, low_level_planes, num_classes, aspp_dilate)
+            classifier = DeepLabHeadV3Plus_CARAFE(inplanes, low_level_planes, num_classes, aspp_dilate)
         else: 
             classifier = DeepLabHeadV3Plus(inplanes, low_level_planes, num_classes, aspp_dilate)
             
@@ -58,7 +59,7 @@ def _segm_resnet(name, backbone_name, num_classes, output_stride, pretrained_bac
         classifier = DeepLabHead(inplanes , num_classes, aspp_dilate)
     backbone = IntermediateLayerGetter(backbone, return_layers=return_layers)
 
-    model = DeepLabV3(backbone, classifier)
+    model = DeepLabV3_wavelet(backbone, classifier)
     return model
 
 

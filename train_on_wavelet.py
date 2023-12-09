@@ -23,7 +23,7 @@ from wavelets import DWT_2D, IDWT_2D
 
 
 os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"  # Arrange GPU devices starting from 0
-os.environ["CUDA_VISIBLE_DEVICES"]= "4"  # Set the GPU 2 to use
+os.environ["CUDA_VISIBLE_DEVICES"]= "1"  # Set the GPU 2 to use
 
 
 def get_argparser():
@@ -76,7 +76,7 @@ def get_argparser():
 
     parser.add_argument("--loss_type", type=str, default='cross_entropy',
                         choices=['cross_entropy', 'focal_loss'], help="loss type (default: False)")
-    parser.add_argument("--gpu_id", type=str, default='4',
+    parser.add_argument("--gpu_id", type=str, default='0',
                         help="GPU ID")
     parser.add_argument("--weight_decay", type=float, default=1e-4,
                         help='weight decay (default: 1e-4)')
@@ -90,7 +90,7 @@ def get_argparser():
                         help="download datasets")
 
     # PASCAL VOC Options
-    parser.add_argument("--year", type=str, default='2012_aug',
+    parser.add_argument("--year", type=str, default='2012',
                         choices=['2012_aug', '2012', '2011', '2009', '2008', '2007'], help='year of VOC')
 
     # Visdom options
@@ -186,7 +186,7 @@ def validate(opts, model, loader, device, metrics, ret_samples_ids=None):
             labels = labels.to(device, dtype=torch.long)
             
             if opts.wavelets:
-                outputs = model(i_ll) # 256, 256 resolution 
+                outputs = model(i_ll, hfs) # 256, 256 resolution 
                 
             else: outputs = model(images)
 
