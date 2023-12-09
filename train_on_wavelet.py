@@ -70,7 +70,7 @@ def get_argparser():
                         help='batch size for validation (default: 4)')
     parser.add_argument("--crop_size", type=int, default=512)
 
-    parser.add_argument("--ckpt", default="pth/best_deeplabv3plus_resnet101_voc_os16.pth", type=str,
+    parser.add_argument("--ckpt", default="pth/best_deeplabv3plus_resnet101_voc_os16_carafe.pth", type=str,
                         help="restore from checkpoint")
     parser.add_argument("--continue_training", action='store_true', default=False)
 
@@ -180,7 +180,8 @@ def validate(opts, model, loader, device, metrics, ret_samples_ids=None):
         for i, (images, labels) in tqdm(enumerate(loader)):
             
             if opts.wavelets:
-                i_ll, _, _, _ = DWT(images)
+                i_ll, i_hl, i_lh, i_hh = DWT(images)
+                hfs = torch.cat((i_hl, i_lh, i_hh), dim = 1) # high frequency subbands, we can use it in additional layer
 
             images = images.to(device, dtype=torch.float32)
             labels = labels.to(device, dtype=torch.long)
@@ -311,7 +312,10 @@ def main():
     if opts.ckpt is not None and os.path.isfile(opts.ckpt):
         # https://github.com/VainF/DeepLabV3Plus-Pytorch/issues/8#issuecomment-605601402, @PytaichukBohdan
         checkpoint = torch.load(opts.ckpt, map_location=torch.device('cpu'))
-        model.load_state_dict(checkpoint["model_state"])
+        state_dict = checkpoint["model_state"]
+        del state_dict["classifier.classifier.0.weight"]
+        model.load_state_dict(state_dict, strict=False)
+        # model.load_state_dict(checkpoint["model_state"])
         model = nn.DataParallel(model)
         model.to(device)
         if opts.continue_training:

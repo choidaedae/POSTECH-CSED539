@@ -54,7 +54,8 @@ class DeepLabHeadV3Plus(nn.Module):
         low_level_feature = self.project( feature['low_level'] )
         output_feature = self.aspp(feature['out'])
         output_feature = F.interpolate(output_feature, size=low_level_feature.shape[2:], mode='bilinear', align_corners=False)
-        return self.classifier( torch.cat( [ low_level_feature, output_feature ], dim=1 ))
+        final_output = self.classifier( torch.cat( [ low_level_feature, output_feature ], dim=1 ))
+        return final_output
 
     
     def _init_weight(self):
@@ -67,8 +68,11 @@ class DeepLabHeadV3Plus(nn.Module):
 
 
 class DeepLabHeadV3Plus_CARAFE(nn.Module):
-    def __init__(self, in_channels, low_level_channels, num_classes, aspp_dilate=[12, 24, 36]):
+    def __init__(self, in_channels, low_level_channels, num_classes, aspp_dilate=[12, 24, 36], kernel_size=3, up_factor=2):
         super(DeepLabHeadV3Plus_CARAFE, self).__init__()
+        self.kernel_size = kernel_size
+        self.up_factor = up_factor
+
         self.project = nn.Sequential( 
             nn.Conv2d(low_level_channels, 48, 1, bias=False),
             nn.BatchNorm2d(48),
@@ -78,19 +82,52 @@ class DeepLabHeadV3Plus_CARAFE(nn.Module):
         self.aspp = ASPP(in_channels, aspp_dilate)
 
         self.classifier = nn.Sequential(
-            nn.Conv2d(304, 256, 3, padding=1, bias=False),
+            nn.Conv2d(256, 256, 3, padding=1, bias=False),
             nn.BatchNorm2d(256),
             nn.ReLU(inplace=True),
             nn.Conv2d(256, num_classes, 1)
         )
         self._init_weight()
-    
+
+        self.wavelet_compressor = nn.Conv2d(9, 128, 4, 4)
+        self.compressor = nn.Conv2d(432, 256, 1)
+        self.encoder = nn.Conv2d(256, self.up_factor ** 2 * self.kernel_size ** 2, self.kernel_size, 1, self.kernel_size // 2)
         
     def forward(self, feature, hfs):
+        hfs = self.wavelet_compressor(hfs)
         low_level_feature = self.project( feature['low_level'] )
         output_feature = self.aspp(feature['out'])
         output_feature = F.interpolate(output_feature, size=low_level_feature.shape[2:], mode='bilinear', align_corners=False)
-        return self.classifier( torch.cat( [ low_level_feature, output_feature ], dim=1 ))
+        kernel_tensor = torch.cat( [ hfs, low_level_feature, output_feature ], dim=1 )
+
+        N, C, H, W = output_feature.size()
+        kernel_tensor = self.compressor(kernel_tensor)
+
+        kernel_tensor = self.encoder(kernel_tensor)  # (N, S^2 * Kup^2, H, W)
+        kernel_tensor = F.pixel_shuffle(kernel_tensor, self.up_factor)  # (N, S^2 * Kup^2, H, W)->(N, Kup^2, S*H, S*W)
+        kernel_tensor = F.softmax(kernel_tensor, dim=1)  # (N, Kup^2, S*H, S*W)
+        kernel_tensor = kernel_tensor.unfold(2, self.up_factor, step=self.up_factor) # (N, Kup^2, H, W*S, S)
+        kernel_tensor = kernel_tensor.unfold(3, self.up_factor, step=self.up_factor) # (N, Kup^2, H, W, S, S)
+        kernel_tensor = kernel_tensor.reshape(N, self.kernel_size ** 2, H, W, self.up_factor ** 2) # (N, Kup^2, H, W, S^2)
+        kernel_tensor = kernel_tensor.permute(0, 2, 3, 1, 4)  # (N, H, W, Kup^2, S^2)
+
+        # content-aware reassembly module
+        # tensor.unfold: dim, size, step
+        x = F.pad(output_feature,
+                  pad=(self.kernel_size // 2, self.kernel_size // 2, self.kernel_size // 2, self.kernel_size // 2), 
+                  mode='constant', value=0) # (N, C, H+Kup//2+Kup//2, W+Kup//2+Kup//2)
+        x = x.unfold(2, self.kernel_size, step=1) # (N, C, H, W+Kup//2+Kup//2, Kup)
+        x = x.unfold(3, self.kernel_size, step=1) # (N, C, H, W, Kup, Kup)
+        x = x.reshape(N, C, H, W, -1) # (N, C, H, W, Kup^2)
+        x = x.permute(0, 2, 3, 1, 4)  # (N, H, W, C, Kup^2)
+
+        out_tensor = torch.matmul(x, kernel_tensor)  # (N, H, W, C, S^2)
+        out_tensor = out_tensor.reshape(N, H, W, -1)
+        out_tensor = out_tensor.permute(0, 3, 1, 2)
+        out_tensor = F.pixel_shuffle(out_tensor, self.up_factor)
+        out_tensor = self.classifier(out_tensor)
+
+        return out_tensor
 
     
     def _init_weight(self):
