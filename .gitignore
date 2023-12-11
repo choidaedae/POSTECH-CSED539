@@ -8,3 +8,6 @@ results
 pth/*
 datasets/*
 test_results
+*.pth
+wandb/
+experiments/*

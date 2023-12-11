@@ -2,7 +2,7 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
-from .utils import _SimpleSegmentationModel, _SimpleSegmentationModelWavelet
+from .utils import _SimpleSegmentationModel, _SimpleSegmentationModelWavelet, _SimpleSegmentationModelWaveletNN, _SimpleSegmentationModelWaveletBilinear
 
 # from ..sapa import SAPAExp
 
@@ -28,6 +28,12 @@ class DeepLabV3(_SimpleSegmentationModel):
     pass
 
 class DeepLabV3_wavelet(_SimpleSegmentationModelWavelet):
+    pass
+
+class DeepLabV3_wavelet_NN(_SimpleSegmentationModelWaveletNN):
+    pass
+
+class DeepLabV3_wavelet_Bilinear(_SimpleSegmentationModelWaveletBilinear):
     pass
 
 class DeepLabHeadV3Plus(nn.Module):

@@ -1,5 +1,6 @@
 from .utils import IntermediateLayerGetter
-from ._deeplab import DeepLabHead, DeepLabHeadV3Plus, DeepLabV3, DeepLabHeadV3PlusWSAPA, DeepLabHeadV3Plus_CARAFE, DeepLabV3_wavelet
+from ._deeplab import DeepLabHead, DeepLabHeadV3Plus, DeepLabV3, DeepLabHeadV3PlusWSAPA, DeepLabHeadV3Plus_CARAFE, DeepLabV3_wavelet \
+    ,DeepLabV3_wavelet_NN, DeepLabV3_wavelet_Bilinear
 from .backbone import (
     resnet,
     mobilenetv2,
@@ -7,6 +8,7 @@ from .backbone import (
     xception
 )
 wavelet = True
+upsampler = 'bilinear' # default
 
 def _segm_hrnet(name, backbone_name, num_classes, pretrained_backbone):
 
@@ -28,6 +30,7 @@ def _segm_hrnet(name, backbone_name, num_classes, pretrained_backbone):
 
     backbone = IntermediateLayerGetter(backbone, return_layers=return_layers, hrnet_flag=True)
     model = DeepLabV3(backbone, classifier)
+    
     return model
 
 def _segm_resnet(name, backbone_name, num_classes, output_stride, pretrained_backbone):
@@ -50,16 +53,36 @@ def _segm_resnet(name, backbone_name, num_classes, output_stride, pretrained_bac
         return_layers = {'layer4': 'out', 'layer1': 'low_level'}
         
         if wavelet:
-            classifier = DeepLabHeadV3Plus_CARAFE(inplanes, low_level_planes, num_classes, aspp_dilate)
+            if upsampler == 'carafev1':
+                classifier = DeepLabHeadV3Plus_CARAFE(inplanes, low_level_planes, num_classes, aspp_dilate)
+            elif upsampler == 'carafev2':
+                classifier = DeepLabHeadV3Plus_CARAFE(inplanes, low_level_planes, num_classes, aspp_dilate)
+            elif upsampler == 'bilinear' or upsampler == 'nn':
+                classifier = DeepLabHeadV3Plus(inplanes, low_level_planes, num_classes, aspp_dilate)
         else: 
             classifier = DeepLabHeadV3Plus(inplanes, low_level_planes, num_classes, aspp_dilate)
             
     elif name=='deeplabv3':
         return_layers = {'layer4': 'out'}
         classifier = DeepLabHead(inplanes , num_classes, aspp_dilate)
+        
     backbone = IntermediateLayerGetter(backbone, return_layers=return_layers)
 
-    model = DeepLabV3_wavelet(backbone, classifier)
+    # model 결정하는 부분
+        
+    if upsampler == 'nn':
+        print('DeepLabV3_wavelet_NN')
+        model = DeepLabV3_wavelet_NN(backbone, classifier) 
+       
+       
+    elif upsampler == 'bilinear':
+        print('DeepLabV3_wavelet_bilinear')
+        model = DeepLabV3_wavelet_Bilinear(backbone, classifier) 
+         
+    else: 
+        print('DeepLabV3_wavelet_feature_upsampler')
+        model = DeepLabV3_wavelet(backbone, classifier)
+        
     return model
 
 

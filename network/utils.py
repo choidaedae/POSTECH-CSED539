@@ -32,8 +32,42 @@ class _SimpleSegmentationModelWavelet(nn.Module):
         
         # need to edit: 'if input is wavelet' or 'if classifier is DeepLabV3HeadW'
         upsample_size = tuple(size * 2 for size in input_shape)
-        # x = F.interpolate(x, size=input_shape, mode='bilinear', align_corners=False)
-        x = F.interpolate(x, size = upsample_size, mode = 'bilinear', align_corners = False)
+        x = F.interpolate(x, size=input_shape, mode='bilinear', align_corners=False)
+        x = F.interpolate(x, size = upsample_size, mode = 'bilinear', align_corners = False) # 2배 더 upsample 
+        return x
+    
+class _SimpleSegmentationModelWaveletBilinear(nn.Module):
+    def __init__(self, backbone, classifier):
+        super(_SimpleSegmentationModelWaveletBilinear, self).__init__()
+        self.backbone = backbone
+        self.classifier = classifier
+        
+    def forward(self, x):
+        input_shape = x.shape[-2:]
+        features = self.backbone(x)
+        x = self.classifier(features)
+        
+        # need to edit: 'if input is wavelet' or 'if classifier is DeepLabV3HeadW'
+        upsample_size = tuple(size * 2 for size in input_shape)
+        x = F.interpolate(x, size=input_shape, mode='bilinear', align_corners=False)
+        x = F.interpolate(x, size = upsample_size, mode = 'bilinear', align_corners = False) # 2배 더 upsample 
+        return x
+    
+class _SimpleSegmentationModelWaveletNN(nn.Module): # for Nearest Neighbor 
+    def __init__(self, backbone, classifier):
+        super(_SimpleSegmentationModelWaveletNN, self).__init__()
+        self.backbone = backbone
+        self.classifier = classifier
+        
+    def forward(self, x):
+        input_shape = x.shape[-2:]
+        features = self.backbone(x)
+        x = self.classifier(features)
+        
+        # need to edit: 'if input is wavelet' or 'if classifier is DeepLabV3HeadW'
+        upsample_size = tuple(size * 2 for size in input_shape)
+        x = F.interpolate(x, size = input_shape, mode= 'bilinear', align_corners=False)
+        x = F.interpolate(x, size = upsample_size, mode = 'nearest') # 2배 더 upsample 
         return x
 
 

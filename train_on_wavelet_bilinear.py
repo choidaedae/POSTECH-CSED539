@@ -19,6 +19,8 @@ from PIL import Image
 import matplotlib
 import matplotlib.pyplot as plt
 
+import wandb 
+
 from wavelets import DWT_2D, IDWT_2D
 
 
@@ -55,8 +57,10 @@ def get_argparser():
     parser.add_argument("--test_only", action='store_true', default=False)
     parser.add_argument("--save_val_results", action='store_true', default=False,
                         help="save segmentation results to \"./results\"")
-    parser.add_argument("--total_itrs", type=int, default=30e3,
+    parser.add_argument("--total_itrs", type=int, default=8250,
                         help="total iterations (default: 30k)")
+    parser.add_argument("--total_epochs", type=int, default=20,
+                        help="total epochs (default: 20)")
     parser.add_argument("--lr", type=float, default=0.01,
                         help="learning rate (default: 0.01)")
     parser.add_argument("--lr_policy", type=str, default='poly', choices=['poly', 'step'],
@@ -64,7 +68,7 @@ def get_argparser():
     parser.add_argument("--step_size", type=int, default=10000)
     parser.add_argument("--crop_val", action='store_true', default=True,
                         help='crop validation (default: False)')
-    parser.add_argument("--batch_size", type=int, default=32,
+    parser.add_argument("--batch_size", type=int, default=64,
                         help='batch size (default: 16)')
     parser.add_argument("--val_batch_size", type=int, default=8,
                         help='batch size for validation (default: 4)')
@@ -76,7 +80,7 @@ def get_argparser():
 
     parser.add_argument("--loss_type", type=str, default='cross_entropy',
                         choices=['cross_entropy', 'focal_loss'], help="loss type (default: False)")
-    parser.add_argument("--gpu_id", type=str, default='0',
+    parser.add_argument("--gpu_id", type=str, default='2',
                         help="GPU ID")
     parser.add_argument("--weight_decay", type=float, default=1e-4,
                         help='weight decay (default: 1e-4)')
@@ -84,7 +88,7 @@ def get_argparser():
                         help="random seed (default: 1)")
     parser.add_argument("--print_interval", type=int, default=10,
                         help="print interval of loss (default: 10)")
-    parser.add_argument("--val_interval", type=int, default=300,
+    parser.add_argument("--val_interval", type=int, default=200, # about 12800 images for batch 64 
                         help="epoch interval for eval (default: 100)")
     parser.add_argument("--download", action='store_true', default=False,
                         help="download datasets")
@@ -134,9 +138,15 @@ def get_dataset(opts):
             ])
         train_dst = VOCSegmentation(root=opts.data_root, year=opts.year,
                                     image_set='train', download=opts.download, transform=train_transform)
+        
+        print(f"Total Train Dataset Numbers: {len(train_dst)}")
+        
+        #opts.total_itrs = len(train_dst) // opts.batch_size # No epoch... 
         val_dst = VOCSegmentation(root=opts.data_root, year=opts.year,
                                   image_set='val', download=False, transform=val_transform)
 
+        print(f"Total Validation Dataset Numbers: {len(val_dst)}")
+        
     if opts.dataset == 'cityscapes':
         train_transform = et.ExtCompose([
             # et.ExtResize( 512 ),
@@ -187,7 +197,7 @@ def validate(opts, model, loader, device, metrics, ret_samples_ids=None):
             labels = labels.to(device, dtype=torch.long)
             
             if opts.wavelets:
-                outputs = model(i_ll, hfs) # 256, 256 resolution 
+                outputs = model(i_ll) # 256, 256 resolution 
                 
             else: outputs = model(images)
 
@@ -213,23 +223,13 @@ def validate(opts, model, loader, device, metrics, ret_samples_ids=None):
                     Image.fromarray(image).save('results/%d_image.png' % img_id)
                     Image.fromarray(target).save('results/%d_target.png' % img_id)
                     Image.fromarray(pred).save('results/%d_pred.png' % img_id)
-
-                    fig = plt.figure()
-                    plt.imshow(image)
-                    plt.axis('off')
-                    plt.imshow(pred, alpha=0.7)
-                    ax = plt.gca()
-                    ax.xaxis.set_major_locator(matplotlib.ticker.NullLocator())
-                    ax.yaxis.set_major_locator(matplotlib.ticker.NullLocator())
-                    plt.savefig('results/%d_overlay.png' % img_id, bbox_inches='tight', pad_inches=0)
-                    plt.close()
                     img_id += 1
 
         score = metrics.get_results()
     return score, ret_samples
 
 
-def main():
+def main(experiment_path):
     opts = get_argparser().parse_args()
     if opts.dataset.lower() == 'voc':
         opts.num_classes = 21
@@ -245,6 +245,17 @@ def main():
     os.environ['CUDA_VISIBLE_DEVICES'] = opts.gpu_id
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print("Device: %s" % device)
+    
+    config = {
+        'model_name' : 'DeepLabV3PLusWavelet+NN',
+        'batch_size' : 64,
+        'epoch' : opts.total_epochs,
+        'criterion' : 'ContLoss',
+        'optimizer' : 'adam',
+
+    }
+    
+    wandb.init(reinit=True, project='CSED539-FinalProject', config=config)
 
     # Setup random seed
     torch.manual_seed(opts.random_seed)
@@ -303,19 +314,17 @@ def main():
             "best_score": best_score,
         }, path)
         print("Model saved as %s" % path)
-
-    utils.mkdir('checkpoints')
+        
     # Restore
     best_score = 0.0
     cur_itrs = 0
     cur_epochs = 0
     if opts.ckpt is not None and os.path.isfile(opts.ckpt):
         # https://github.com/VainF/DeepLabV3Plus-Pytorch/issues/8#issuecomment-605601402, @PytaichukBohdan
-        checkpoint = torch.load(opts.ckpt, map_location=torch.device('cpu'))
+        checkpoint = torch.load(opts.ckpt, map_location=torch.device('cpu')) 
         state_dict = checkpoint["model_state"]
-        del state_dict["classifier.classifier.0.weight"]
         model.load_state_dict(state_dict, strict=False)
-        # model.load_state_dict(checkpoint["model_state"])
+        
         model = nn.DataParallel(model)
         model.to(device)
         if opts.continue_training:
@@ -350,7 +359,7 @@ def main():
     while True:  # cur_itrs < opts.total_itrs:
         # =====  Train  =====
         model.train()
-        cur_epochs += 1
+        #cur_epochs += 1
         for (images, labels) in train_loader:
             cur_itrs += 1
 
@@ -361,16 +370,16 @@ def main():
                 i_ll, i_hl, i_lh, i_hh = DWT(images)
                 hfs = torch.cat((i_hl, i_lh, i_hh), dim = 1) # high frequency subbands, we can use it in additional layer
                 
-
             optimizer.zero_grad()
             
             if opts.wavelets:
-                outputs = model(i_ll, hfs) # 256, 256 resolution 
+                outputs = model(i_ll) # 256, 256 resolution 
                 
             else: outputs = model(images)
             
             # outputs = model(images) # original implementation 
             loss = criterion(outputs, labels)
+            
             loss.backward()
             optimizer.step()
 
@@ -383,39 +392,45 @@ def main():
                 interval_loss = interval_loss / 10
                 print("Epoch %d, Itrs %d/%d, Loss=%f" %
                       (cur_epochs, cur_itrs, opts.total_itrs, interval_loss))
+                wandb.log({"loss": interval_loss})
                 interval_loss = 0.0
-
+            
             if (cur_itrs) % opts.val_interval == 0:
-                save_ckpt('checkpoints/latest_%s_%s_os%d.pth' %
-                          (opts.model, opts.dataset, opts.output_stride))
+                save_ckpt('%s/checkpoints/latest_%s_%s_os%d.pth' %
+                          (experiment_path, opts.model, opts.dataset, opts.output_stride))
                 print("validation...")
                 model.eval()
                 val_score, ret_samples = validate(
                     opts=opts, model=model, loader=val_loader, device=device, metrics=metrics,
                     ret_samples_ids=vis_sample_id)
+                
+                wandb.log({"Mean IoU": val_score['Mean IoU']})
+                wandb.log({"Class IoU": val_score['Class IoU']})
+                
                 print(metrics.to_str(val_score))
                 if val_score['Mean IoU'] > best_score:  # save best model
                     best_score = val_score['Mean IoU']
-                    save_ckpt('checkpoints/best_%s_%s_os%d.pth' %
-                              (opts.model, opts.dataset, opts.output_stride))
-
-                if vis is not None:  # visualize validation score and samples
-                    vis.vis_scalar("[Val] Overall Acc", cur_itrs, val_score['Overall Acc'])
-                    vis.vis_scalar("[Val] Mean IoU", cur_itrs, val_score['Mean IoU'])
-                    vis.vis_table("[Val] Class IoU", val_score['Class IoU'])
-
-                    for k, (img, target, lbl) in enumerate(ret_samples):
-                        img = (denorm(img) * 255).astype(np.uint8)
-                        target = train_dst.decode_target(target).transpose(2, 0, 1).astype(np.uint8)
-                        lbl = train_dst.decode_target(lbl).transpose(2, 0, 1).astype(np.uint8)
-                        concat_img = np.concatenate((img, target, lbl), axis=2)  # concat along width
-                        vis.vis_image('Sample %d' % k, concat_img)
+                    save_ckpt('%s/checkpoints/best_%s_%s_os%d.pth' %
+                              (experiment_path,opts.model, opts.dataset, opts.output_stride))
+                    
+                for k, (img, target, lbl) in enumerate(ret_samples): # visualize option false로 하면 ret_samples 길이가 0이라서 저장 안됨 
+                    img = (denorm(img) * 255).astype(np.uint8)
+                    target = train_dst.decode_target(target).transpose(2, 0, 1).astype(np.uint8)
+                    lbl = train_dst.decode_target(lbl).transpose(2, 0, 1).astype(np.uint8)
+                    concat_img = np.concatenate((img, target, lbl), axis=2)  # concat along width
+                    vis.vis_image('Sample %d' % k, concat_img)
                 model.train()
+                
             scheduler.step()
-
             if cur_itrs >= opts.total_itrs:
                 return
 
 
 if __name__ == '__main__':
-    main()
+    
+    experiment_name = "wavelet_bilinear"
+    experiment_path = f"experiments/{experiment_name}"
+    os.makedirs(experiment_path, exist_ok=True)
+    os.makedirs(os.path.join(experiment_path, 'checkpoints'), exist_ok=True)
+    os.makedirs(os.path.join(experiment_path, 'visualizations'), exist_ok=True)
+    main(experiment_path)
