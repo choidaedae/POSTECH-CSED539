@@ -89,12 +89,16 @@ class DeepLabHeadV3Plus_CARAFE(nn.Module):
         )
         self._init_weight()
 
-        self.wavelet_compressor = nn.Conv2d(9, 128, 4, 4)
+        self.wavelet_compressor1 = nn.Conv2d(9, 36, 3, 1, 1)
+        self.wavelet_compressor2 = nn.Conv2d(36, 128, 3, 1, 1)
+        
         self.compressor = nn.Conv2d(432, 256, 1)
         self.encoder = nn.Conv2d(256, self.up_factor ** 2 * self.kernel_size ** 2, self.kernel_size, 1, self.kernel_size // 2)
         
     def forward(self, feature, hfs):
-        hfs = self.wavelet_compressor(hfs)
+        hfs = F.relu(F.max_pool2d(self.wavelet_compressor1(hfs), 2, 2))
+        hfs = F.relu(F.max_pool2d(self.wavelet_compressor2(hfs), 2, 2))
+
         low_level_feature = self.project( feature['low_level'] )
         output_feature = self.aspp(feature['out'])
         output_feature = F.interpolate(output_feature, size=low_level_feature.shape[2:], mode='bilinear', align_corners=False)
