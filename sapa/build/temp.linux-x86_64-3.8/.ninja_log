@@ -1,0 +1,3 @@
+# ninja log v5
+24	24180	1702387060692608480	/root/daehyeonchoi/POSTECH-CSED539/POSTECH-CSED539/sapa/build/temp.linux-x86_64-3.8/sapa/src/qk_ext.o	c8da95019dd7079
+0	24291	1702387060804607776	/root/daehyeonchoi/POSTECH-CSED539/POSTECH-CSED539/sapa/build/temp.linux-x86_64-3.8/sapa/src/cuda/qk_cuda.o	b53acdb93b2efa75

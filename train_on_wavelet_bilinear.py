@@ -52,12 +52,15 @@ def get_argparser():
     
     parser.add_argument("--wavelets", type=bool, default=True,
                         help='using wavelet transform (i.e. DeepLabV3PlusW Model)')
+    parser.add_argument("--upsampler", type=str, default='bilinear', choices=['nn', 'bilinear', 'carafev1', 
+                                                                              'carafev2', 'sapa'],
+                        help='select feature upsampler options')
 
     # Train Options
     parser.add_argument("--test_only", action='store_true', default=False)
     parser.add_argument("--save_val_results", action='store_true', default=False,
                         help="save segmentation results to \"./results\"")
-    parser.add_argument("--total_itrs", type=int, default=8250,
+    parser.add_argument("--total_itrs", type=int, default=30000,
                         help="total iterations (default: 30k)")
     parser.add_argument("--total_epochs", type=int, default=20,
                         help="total epochs (default: 20)")
@@ -276,7 +279,7 @@ def main(experiment_path):
           (opts.dataset, len(train_dst), len(val_dst)))
 
     # Set up model (all models are 'constructed at network.modeling)
-    model = network.modeling.__dict__[opts.model](num_classes=opts.num_classes, output_stride=opts.output_stride)
+    model = network.modeling.__dict__[opts.model](upsampler = opts.upsampler,num_classes=opts.num_classes, output_stride=opts.output_stride)
     if opts.separable_conv and 'plus' in opts.model:
         network.convert_to_separable_conv(model.classifier)
     utils.set_bn_momentum(model.backbone, momentum=0.01)

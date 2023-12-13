@@ -52,6 +52,9 @@ def get_argparser():
     
     parser.add_argument("--wavelets", type=bool, default=True,
                         help='using wavelet transform (i.e. DeepLabV3PlusW Model)')
+    parser.add_argument("--upsampler", type=str, default='nn', choices=['nn', 'bilinear', 'carafev1', 
+                                                                              'carafev2', 'sapa'],
+                        help='select feature upsampler options')
 
     # Train Options
     parser.add_argument("--test_only", action='store_true', default=False)

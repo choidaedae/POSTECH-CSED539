@@ -52,6 +52,11 @@ def get_argparser():
     
     parser.add_argument("--wavelets", type=bool, default=True,
                         help='using wavelet transform (i.e. DeepLabV3PlusW Model)')
+    
+    parser.add_argument("--upsampler", type=str, default='carafev2', choices=['nn', 'bilinear', 'carafev1', 
+                                                                              'carafev2', 'sapa'],
+                        help='select feature upsampler options')
+
 
     # Train Options
     parser.add_argument("--test_only", action='store_true', default=False)
@@ -80,7 +85,7 @@ def get_argparser():
 
     parser.add_argument("--loss_type", type=str, default='cross_entropy',
                         choices=['cross_entropy', 'focal_loss'], help="loss type (default: False)")
-    parser.add_argument("--gpu_id", type=str, default='0',
+    parser.add_argument("--gpu_id", type=str, default='4',
                         help="GPU ID")
     parser.add_argument("--weight_decay", type=float, default=1e-4,
                         help='weight decay (default: 1e-4)')
@@ -229,7 +234,7 @@ def validate(opts, model, loader, device, metrics, ret_samples_ids=None):
     return score, ret_samples
 
 
-def main():
+def main(experiment_path):
     opts = get_argparser().parse_args()
     if opts.dataset.lower() == 'voc':
         opts.num_classes = 21
@@ -247,7 +252,7 @@ def main():
     print("Device: %s" % device)
     
     config = {
-        'model_name' : 'DeepLabV3PLusWavelet+CARAFE',
+        'model_name' : 'DeepLabV3PLusWavelet+CARAFEv2',
         'batch_size' : 64,
         'epoch' : opts.total_epochs,
         'criterion' : 'ContLoss',
@@ -276,7 +281,7 @@ def main():
           (opts.dataset, len(train_dst), len(val_dst)))
 
     # Set up model (all models are 'constructed at network.modeling)
-    model = network.modeling.__dict__[opts.model](num_classes=opts.num_classes, output_stride=opts.output_stride)
+    model = network.modeling.__dict__[opts.model](upsampler=opts.upsampler, num_classes=opts.num_classes, output_stride=opts.output_stride)
     if opts.separable_conv and 'plus' in opts.model:
         network.convert_to_separable_conv(model.classifier)
     utils.set_bn_momentum(model.backbone, momentum=0.01)
@@ -398,8 +403,8 @@ def main():
                 interval_loss = 0.0
             
             if (cur_itrs) % opts.val_interval == 0:
-                save_ckpt('checkpoints/latest_%s_%s_os%d.pth' %
-                          (opts.model, opts.dataset, opts.output_stride))
+                save_ckpt('%s/checkpoints/latest_%s_%s_os%d.pth' %
+                          (experiment_path, opts.model, opts.dataset, opts.output_stride))
                 print("validation...")
                 model.eval()
                 val_score, ret_samples = validate(
@@ -412,8 +417,8 @@ def main():
                 print(metrics.to_str(val_score))
                 if val_score['Mean IoU'] > best_score:  # save best model
                     best_score = val_score['Mean IoU']
-                    save_ckpt('checkpoints/best_%s_%s_os%d.pth' %
-                              (opts.model, opts.dataset, opts.output_stride))
+                    save_ckpt('%s/checkpoints/best_%s_%s_os%d.pth' %
+                              (experiment_path,opts.model, opts.dataset, opts.output_stride))
                     
                 for k, (img, target, lbl) in enumerate(ret_samples): # visualize option false로 하면 ret_samples 길이가 0이라서 저장 안됨 
                     img = (denorm(img) * 255).astype(np.uint8)
@@ -429,4 +434,10 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    
+    experiment_name = "wavelet_carafe_v2"
+    experiment_path = f"experiments/{experiment_name}"
+    os.makedirs(experiment_path, exist_ok=True)
+    os.makedirs(os.path.join(experiment_path, 'checkpoints'), exist_ok=True)
+    os.makedirs(os.path.join(experiment_path, 'visualizations'), exist_ok=True)
+    main(experiment_path)

@@ -1,3 +1,3 @@
-from .sapa import sim, atn
+from .sapa_func import sim, atn
 
 __all__ = ['sim', 'atn']

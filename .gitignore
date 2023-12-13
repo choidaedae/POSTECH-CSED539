@@ -9,5 +9,6 @@ pth/*
 datasets/*
 test_results
 *.pth
+*.png
 wandb/
 experiments/*
