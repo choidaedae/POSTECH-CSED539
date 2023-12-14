@@ -3,4 +3,4 @@ POSTECH CSED539 (Computer Vision) Final term Project
 
 
 ### Topic
-Further improvements of DDPM Based Semantic Segmentation 
+Efficient and Competitive Segmentation via Wavelet Feature Upsamplers
