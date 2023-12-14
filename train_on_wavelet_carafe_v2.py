@@ -85,7 +85,7 @@ def get_argparser():
 
     parser.add_argument("--loss_type", type=str, default='cross_entropy',
                         choices=['cross_entropy', 'focal_loss'], help="loss type (default: False)")
-    parser.add_argument("--gpu_id", type=str, default='4',
+    parser.add_argument("--gpu_id", type=str, default='3',
                         help="GPU ID")
     parser.add_argument("--weight_decay", type=float, default=1e-4,
                         help='weight decay (default: 1e-4)')

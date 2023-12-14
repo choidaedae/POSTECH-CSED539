@@ -1,6 +1,6 @@
 from .utils import IntermediateLayerGetter
 from ._deeplab import DeepLabHead, DeepLabHeadV3Plus, DeepLabV3, DeepLabHeadV3Plus_SAPA, DeepLabHeadV3Plus_CARAFE_v1, DeepLabHeadV3Plus_CARAFE_v2, DeepLabV3_wavelet \
-    ,DeepLabV3_wavelet_NN, DeepLabV3_wavelet_Bilinear
+    ,DeepLabV3_wavelet_NN, DeepLabV3_wavelet_Bilinear, DeepLabHeadV3Plus_DeFup, DeepLabHeadV3Plus_CARAFE_v1_noW, DeepLabHeadV3Plus_CARAFE_v2_noW,DeepLabHeadV3Plus_DeFup_noW
 from .backbone import (
     resnet,
     mobilenetv2,
@@ -53,15 +53,33 @@ def _segm_resnet(name, backbone_name, upsampler, num_classes, output_stride, pre
         
         if wavelet:
             if upsampler == 'carafev1':
+                print('Upsampler Mode: carafev1')
                 classifier = DeepLabHeadV3Plus_CARAFE_v1(inplanes, low_level_planes, num_classes, aspp_dilate)
             elif upsampler == 'carafev2':
+                print('Upsampler Mode: carafev2')
                 classifier = DeepLabHeadV3Plus_CARAFE_v2(inplanes, low_level_planes, num_classes, aspp_dilate)
-            elif upsampler == 'sapa':
-                classifier = DeepLabHeadV3Plus_SAPA(inplanes, low_level_planes, num_classes, aspp_dilate)
+            elif upsampler == 'defup':
+                print('Upsampler Mode: DeFup')
+                classifier = DeepLabHeadV3Plus_DeFup(inplanes, low_level_planes, num_classes, aspp_dilate)
             elif upsampler == 'bilinear' or upsampler == 'nn':
                 classifier = DeepLabHeadV3Plus(inplanes, low_level_planes, num_classes, aspp_dilate)
+            else: # none
+                classifier = DeepLabHeadV3Plus(inplanes, low_level_planes, num_classes, aspp_dilate)
         else: 
-            classifier = DeepLabHeadV3Plus(inplanes, low_level_planes, num_classes, aspp_dilate)
+            if upsampler == 'carafev1':
+                print('Upsampler Mode: carafev1 (no high frequency feature)')
+                classifier = DeepLabHeadV3Plus_CARAFE_v1_noW(inplanes, low_level_planes, num_classes, aspp_dilate)
+            elif upsampler == 'carafev2':
+                print('Upsampler Mode: carafev2 (no high frequency feature)')
+                classifier = DeepLabHeadV3Plus_CARAFE_v2_noW(inplanes, low_level_planes, num_classes, aspp_dilate)
+            elif upsampler == 'defup':
+                print('Upsampler Mode: DeFup (no high frequency feature)')
+                classifier = DeepLabHeadV3Plus_DeFup_noW(inplanes, low_level_planes, num_classes, aspp_dilate)
+            elif upsampler == 'bilinear' or upsampler == 'nn':
+                classifier = DeepLabHeadV3Plus(inplanes, low_level_planes, num_classes, aspp_dilate)
+            else: # none
+                classifier = DeepLabHeadV3Plus(inplanes, low_level_planes, num_classes, aspp_dilate)
+
             
     elif name=='deeplabv3':
         return_layers = {'layer4': 'out'}
@@ -80,7 +98,10 @@ def _segm_resnet(name, backbone_name, upsampler, num_classes, output_stride, pre
         print('DeepLabV3_wavelet_bilinear')
         model = DeepLabV3_wavelet_Bilinear(backbone, classifier) 
          
-    else: 
+    elif upsampler == 'no':
+        print('DeepLabV3_default')
+        model = DeepLabV3(backbone, classifier)
+    else:
         print('DeepLabV3_wavelet_feature_upsampler')
         model = DeepLabV3_wavelet(backbone, classifier)
         

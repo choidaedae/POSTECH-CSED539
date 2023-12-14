@@ -50,10 +50,10 @@ def get_argparser():
                         help="apply separable conv to decoder and aspp")
     parser.add_argument("--output_stride", type=int, default=16, choices=[8, 16])
     
-    parser.add_argument("--wavelets", type=bool, default=True,
+    parser.add_argument("--wavelets", type=bool, default=False,
                         help='using wavelet transform (i.e. DeepLabV3PlusW Model)')
     parser.add_argument("--upsampler", type=str, default='sapa', choices=['nn', 'bilinear', 'carafev1', 
-                                                                              'carafev2', 'sapa'],
+                                                                              'carafev2', 'no'],
                         help='select feature upsampler options')
 
     # Train Options
@@ -433,7 +433,7 @@ def main(experiment_path):
 
 if __name__ == '__main__':
     
-    experiment_name = "wavelet_carafe_v2"
+    experiment_name = "wavelet_no"
     experiment_path = f"experiments/{experiment_name}"
     os.makedirs(experiment_path, exist_ok=True)
     os.makedirs(os.path.join(experiment_path, 'checkpoints'), exist_ok=True)

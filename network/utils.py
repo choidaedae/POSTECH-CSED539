@@ -28,11 +28,10 @@ class _SimpleSegmentationModelWavelet(nn.Module):
     def forward(self, x, hfs):
         input_shape = x.shape[-2:]
         features = self.backbone(x)
-        x = self.classifier(features, hfs)
+        x = self.classifier(features, hfs) # CARAFE 적용했을 때 여기 resolution 128인지 확인 
         
         # need to edit: 'if input is wavelet' or 'if classifier is DeepLabV3HeadW'
         upsample_size = tuple(size * 2 for size in input_shape)
-        x = F.interpolate(x, size=input_shape, mode='bilinear', align_corners=False)
         x = F.interpolate(x, size = upsample_size, mode = 'bilinear', align_corners = False) # 2배 더 upsample 
         return x
     

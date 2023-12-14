@@ -53,8 +53,8 @@ def get_argparser():
     parser.add_argument("--wavelets", type=bool, default=True,
                         help='using wavelet transform (i.e. DeepLabV3PlusW Model)')
     
-    parser.add_argument("--upsampler", type=str, default='carafev1', choices=['nn', 'bilinear', 'carafev1', 
-                                                                              'carafev2', 'defup'],
+    parser.add_argument("--upsampler", type=str, default='defup', choices=['nn', 'bilinear', 'carafev1', 
+                                                                              'carafev2', 'defup', 'sapa'],
                         help='select feature upsampler options')
 
 
@@ -85,7 +85,7 @@ def get_argparser():
 
     parser.add_argument("--loss_type", type=str, default='cross_entropy',
                         choices=['cross_entropy', 'focal_loss'], help="loss type (default: False)")
-    parser.add_argument("--gpu_id", type=str, default='2',
+    parser.add_argument("--gpu_id", type=str, default='4',
                         help="GPU ID")
     parser.add_argument("--weight_decay", type=float, default=1e-4,
                         help='weight decay (default: 1e-4)')
@@ -272,10 +272,10 @@ def main(experiment_path):
 
     train_dst, val_dst = get_dataset(opts)
     train_loader = data.DataLoader(
-        train_dst, batch_size=opts.batch_size, shuffle=True, num_workers=2,
+        train_dst, batch_size=opts.batch_size, shuffle=True, num_workers=8,
         drop_last=True)  # drop_last=True to ignore single-image batches.
     val_loader = data.DataLoader(
-        val_dst, batch_size=opts.val_batch_size, shuffle=True, num_workers=2)
+        val_dst, batch_size=opts.val_batch_size, shuffle=True, num_workers=8)
     print("Dataset: %s, Train set: %d, Val set: %d" %
           (opts.dataset, len(train_dst), len(val_dst)))
 
@@ -433,7 +433,7 @@ def main(experiment_path):
 
 
 if __name__ == '__main__':
-    experiment_name = "wavelet_carafe_v1_noW"
+    experiment_name = "wavelet_carafe_defup_noW"
     experiment_path = f"experiments/{experiment_name}"
     os.makedirs(experiment_path, exist_ok=True)
     os.makedirs(os.path.join(experiment_path, 'checkpoints'), exist_ok=True)
